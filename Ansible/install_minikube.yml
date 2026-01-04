@@ -1,0 +1,78 @@
+---
+- name: Install Docker, kubectl and Minikube
+  hosts: localhost
+  become: true
+
+  vars:
+    kubectl_bin: /usr/local/bin/kubectl
+    minikube_bin: /usr/local/bin/minikube
+    normal_user: "{{ ansible_env.SUDO_USER | default(ansible_user_id) }}"
+
+  tasks:
+    - name: Update apt cache and upgrade packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - apt-transport-https
+          - ca-certificates
+          - gnupg
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Add user to docker group
+      user:
+        name: "{{ normal_user }}"
+        groups: docker
+        append: yes
+
+    - name: Reset SSH connection to apply group changes
+      meta: reset_connection
+
+    - name: Test Docker installation
+      command: docker run hello-world
+      register: docker_test
+      changed_when: false
+
+    - name: Download kubectl
+      get_url:
+        url: "https://dl.k8s.io/release/{{ lookup('url', 'https://dl.k8s.io/release/stable.txt') }}/bin/linux/amd64/kubectl"
+        dest: "{{ kubectl_bin }}"
+        mode: '0755'
+
+    - name: Verify kubectl installation
+      command: kubectl version --client
+      register: kubectl_version
+      changed_when: false
+
+    - name: Download Minikube
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: "{{ minikube_bin }}"
+        mode: '0755'
+
+    - name: Verify Minikube installation
+      command: minikube version
+      register: minikube_version
+      changed_when: false
+
+    - name: Start Minikube with Docker driver
+      become: false
+      command: minikube start --driver=docker
+      args:
+        creates: "/home/{{ normal_user }}/.minikube"
