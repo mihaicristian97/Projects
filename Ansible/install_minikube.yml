@@ -22,6 +22,7 @@
           - apt-transport-https
           - ca-certificates
           - gnupg
+          - terminator
         state: present
 
     - name: Install Docker
