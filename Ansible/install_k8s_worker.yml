@@ -28,12 +28,9 @@
         sed -i '/ swap / s/^/#/' /etc/fstab
 
     - name: Load required kernel modules for Kubernetes
-      community.general.modprobe:
-        name: "{{ item }}"
-        state: present
-      loop:
-        - br_netfilter
-        - overlay
+      shell: |
+        modprobe overlay
+        modprobe br_netfilter
 
     - name: Load kernel modules
       copy:
@@ -97,6 +94,6 @@
       command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
 
     - name: Join Kubernetes Worker to the cluster
-      command: "{{ hostvars['k8s-master']['join_cmd'] }}"
+      command: "{{ hostvars['k8s-master']['kube_join_command'] }}"
       args:
         creates: /etc/kubernetes/kubelet.conf
