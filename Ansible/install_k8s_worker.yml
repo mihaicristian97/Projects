@@ -72,7 +72,7 @@
       shell: |
         mkdir -p /etc/apt/keyrings
         curl -fsSL https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/Release.key | 
-        gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+        gpg --dearmor --yes --batch -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
         echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] \
         https://pkgs.k8s.io/core:/stable:/{{ k8s_version }}/deb/ /" \
         > /etc/apt/sources.list.d/kubernetes.list
@@ -88,10 +88,6 @@
 
     - name: Hold Kubernetes packages
       command: apt-mark hold kubelet kubeadm kubectl
-
-    - name: Install Flannel CNI plugin
-      become: false
-      command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
 
     - name: Join Kubernetes Worker to the cluster
       command: "{{ hostvars['k8s-master']['kube_join_command'] }}"
