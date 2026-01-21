@@ -28,13 +28,13 @@
         sed -i '/ swap / s/^/#/' /etc/fstab
 
     - name: Load required kernel modules for Kubernetes
-      modprobe:
+      community.general.modprobe:
         name: "{{ item }}"
         state: present
       loop:
         - br_netfilter
         - overlay
-        
+
     - name: Load kernel modules
       copy:
         dest: /etc/modules-load.d/k8s.conf
