@@ -5,7 +5,12 @@
   vars:
     k8s_version: v1.29
     pod_network_cidr: 10.244.0.0/16
-    master_ip: 10.0.2.15
+#    master_ip: 10.0.2.15
+#    worker1_ip: 10.0.2.16
+#    worker2_ip: 10.0.2.17
+#    master_hostname: k8s-master
+#    worker1_hostname: k8s-worker-1
+#    worker2_hostname: k8s-worker-2
 
   tasks:
     - name: Update apt cache and upgrade packages
@@ -28,6 +33,31 @@
       shell: |
         swapoff -a
         sed -i '/ swap / s/^/#/' /etc/fstab
+
+#    - name: Add custom entries to /etc/hosts
+#      ansible.builtin.blockinfile:
+#        path: /etc/hosts
+#        block: |
+#          {{ master_ip }} {{ master_hostname }}
+#          {{ worker1_ip }} {{ worker1_hostname }}
+#          {{ worker2_ip }} {{ worker2_hostname }}
+#        insertafter: EOF
+
+    - name: Add entries for workers and master to /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {% for host in groups['master'] %}
+          {{ host }} {{ hostvars[host]['ansible_host'] }}
+          {% endfor %}
+          {% for host in groups['workers'] %}
+          {{ host }} {{ hostvars[host]['ansible_host'] }}
+          {% endfor %}
+        insertafter: EOF
+
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
 
     - name: Load required kernel modules for Kubernetes
       shell: |
@@ -101,9 +131,9 @@
 
     - name: Configure kubectl for user
       shell: |
-        mkdir -p $HOME/.kube
-        cp /etc/kubernetes/admin.conf $HOME/.kube/config
-        chown $(id -u):$(id -g) $HOME/.kube/config
+        mkdir -p /home/{{ ansible_user }}/.kube
+        cp /etc/kubernetes/admin.conf /home/{{ ansible_user }}/.kube/config
+        chown $(id -u):$(id -g) /home/{{ ansible_user }}/.kube/config
 
     - name: Install Flannel CNI plugin
       become: false

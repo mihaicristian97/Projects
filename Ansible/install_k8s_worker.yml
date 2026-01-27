@@ -4,7 +4,13 @@
 
   vars:
     k8s_version: v1.29
-  
+#    master_ip: 10.0.2.15
+#    worker1_ip: 10.0.2.16
+#    worker2_ip: 10.0.2.17
+#    master_hostname: k8s-master
+#    worker1_hostname: k8s-worker-1
+#    worker2_hostname: k8s-worker-2
+
   tasks:
     - name: Update apt cache and upgrade packages
       apt:
@@ -26,6 +32,22 @@
       shell: |
         swapoff -a
         sed -i '/ swap / s/^/#/' /etc/fstab
+
+    - name: Add entries for workers and master to /etc/hosts
+      ansible.builtin.blockinfile:
+        path: /etc/hosts
+        block: |
+          {% for host in groups['master'] %}
+          {{ host }} {{ hostvars[host]['ansible_host'] }}
+          {% endfor %}
+          {% for host in groups['workers'] %}
+          {{ host }} {{ hostvars[host]['ansible_host'] }}
+          {% endfor %}
+        insertafter: EOF
+
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
 
     - name: Load required kernel modules for Kubernetes
       shell: |
