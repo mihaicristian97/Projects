@@ -4,8 +4,8 @@
   become: false
   
   vars:
-    dashboard_url: "http://{{ ansible_host }}:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
-    kubectl_path: /usr/local/bin/kubectl
+    dashboard_url: "http://127.0.0.1:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
+    kubectl_path: /usr/bin/kubectl
   
   tasks:
     - name: Install Kubernetes Dashboard
@@ -55,6 +55,7 @@
           ExecStart={{ kubectl_path }} proxy --address=0.0.0.0 --accept-hosts='.*'
           Restart=always
           RestartSec=5
+          User = root
 
           [Install]
           WantedBy=multi-user.target
