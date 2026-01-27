@@ -1,0 +1,74 @@
+---
+- name: Install Kubernetes Dashboard with persistent kubectl proxy
+  hosts: master
+  become: false
+  
+  vars:
+    dashboard_url: "http://{{ ansible_host }}:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/"
+    kubectl_path: /usr/local/bin/kubectl
+  
+  tasks:
+    - name: Install Kubernetes Dashboard
+      command: >
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+
+    - name: Wait for dashboard deployment to be available
+      command: >
+        kubectl -n kubernetes-dashboard
+        rollout status deployment/kubernetes-dashboard
+      retries: 10
+      delay: 15
+      register: rollout
+      until: rollout.rc == 0
+
+    - name: Create admin service account
+      command: >
+        kubectl create serviceaccount admin-user -n kubernetes-dashboard
+      failed_when: false
+
+    - name: Create cluster role binding for admin user
+      command: >
+        kubectl create clusterrolebinding admin-user-binding
+        --clusterrole=cluster-admin
+        --serviceaccount=kubernetes-dashboard:admin-user
+      failed_when: false
+
+    - name: Get dashboard login token
+      command: >
+        kubectl -n kubernetes-dashboard create token admin-user 
+      register: token
+
+    - name: Print dashboard token
+      debug:
+        msg: "Kubernetes Dashboard Token: {{ token.stdout }}"
+
+    - name: Create systemd service for kubectl proxy
+      copy:
+        dest: /etc/systemd/system/kubectl-proxy.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Kubernetes Dashboard proxy
+          After=network.target
+
+          [Service]
+          ExecStart={{ kubectl_path }} proxy --address=0.0.0.0 --accept-hosts='.*'
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Enable and start kubectl proxy service
+      ansible.builtin.systemd:
+        name: kubectl-proxy.service
+        state: started
+        enabled: yes
+
+    - name: Print dashboard access URL
+      debug:
+        msg: "Access the Kubernetes Dashboard at: {{ dashboard_url }}" 

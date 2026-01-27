@@ -1,0 +1,49 @@
+---
+- name: Install Kubernetes Dashboard via NodePort
+  hosts: master
+  become: false
+
+  vars:
+    nodeport: 32000
+
+  tasks:
+    - name: Install Kubernetes Dashboard
+      command: >
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+
+    - name: Wait for dashboard deployment to be available
+      command: >
+        kubectl -n kubernetes-dashboard
+        rollout status deployment/kubernetes-dashboard
+      retries: 10
+      delay: 15
+      register: rollout
+      until: rollout.rc == 0
+
+    - name: Create admin service account
+      command: >
+        kubectl create serviceaccount admin-user -n kubernetes-dashboard
+      failed_when: false
+
+    - name: Create cluster role binding for admin user
+      command: >
+        kubectl create clusterrolebinding admin-user-binding
+        --clusterrole=cluster-admin
+        --serviceaccount=kubernetes-dashboard:admin-user
+      failed_when: false
+
+    - name: Patch dashboard service to NodePort
+      command: >
+        kubectl -n kubernetes-dashboard patch service kubernetes-dashboard
+        -p '{"spec": {"type": "NodePort", "ports": [{"port": 443, "targetPort": 8443, "nodePort": {{ nodeport }} }]}}'
+
+    - name: Get dashboard login token
+      command: >
+        kubectl -n kubernetes-dashboard create token admin-user 
+      register: token
+
+    - name: Print dashboard token and access info
+      debug:
+        msg: |
+          Kubernetes Dashboard Token: {{ token.stdout }}
+          Access the dashboard at: https://{{ ansible_host }}:{{ nodeport }}
