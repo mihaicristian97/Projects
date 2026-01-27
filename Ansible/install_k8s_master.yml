@@ -133,7 +133,7 @@
       shell: |
         mkdir -p /home/{{ ansible_user }}/.kube
         cp /etc/kubernetes/admin.conf /home/{{ ansible_user }}/.kube/config
-        chown $(id -u):$(id -g) /home/{{ ansible_user }}/.kube/config
+        chown {{ ansible_user }}:{{ ansible_user }} /home/{{ ansible_user }}/.kube/config
 
     - name: Install Flannel CNI plugin
       become: false
