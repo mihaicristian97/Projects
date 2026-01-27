@@ -5,7 +5,7 @@
   vars:
     k8s_version: v1.29
     pod_network_cidr: 10.244.0.0/16
-#    master_ip: 10.0.2.15
+    master_ip: 10.0.2.15
 #    worker1_ip: 10.0.2.16
 #    worker2_ip: 10.0.2.17
 #    master_hostname: k8s-master
