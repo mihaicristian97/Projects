@@ -168,6 +168,7 @@
           After=network.target
 
           [Service]
+          Environment=KUBECONFIG=/home/{{ ansible_user }}/.kube/config
           ExecStart={{ kubectl_path }} proxy --address=0.0.0.0 --accept-hosts='.*'
           Restart=always
           RestartSec=5
