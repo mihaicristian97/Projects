@@ -137,7 +137,9 @@
 
     - name: Install Flannel CNI plugin
       become: false
-      command: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+      command: >
+        kubectl apply --kubeconfig /etc/kubernetes/admin.conf 
+        -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
 
     - name: Generate join command for worker nodes
       command: kubeadm token create --print-join-command
