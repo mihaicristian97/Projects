@@ -21,6 +21,92 @@
       register: rollout
       until: rollout.rc == 0
 
+    - name: Get current metrics-server deployment
+      command: kubectl -n kube-system get deployment metrics-server -o yaml
+      register: metrics_yaml
+
+    - name: Update metrics-server args robustly
+      copy:
+        dest: /tmp/metrics-server.yaml
+        content: |
+          {{ metrics_yaml.stdout
+            | from_yaml
+            | combine({
+                'spec': {
+                  'template': {
+                    'spec': {
+                      'containers': [
+                        {
+                          'name': 'metrics-server',
+                          'image': (metrics_yaml.stdout | from_yaml).spec.template.spec.containers[0].image,
+                          'args': [
+                            '--cert-dir=/tmp',
+                            '--secure-port=4443',
+                            '--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname',
+                            '--kubelet-use-node-status-port',
+                            '--metric-resolution=15s',
+                            '--kubelet-insecure-tls'
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }, recursive=True)
+            | to_nice_yaml
+          }}
+
+    - name: Apply updated metrics-server deployment
+      command: kubectl apply -f /tmp/metrics-server.yaml
+
+    - name: Restart metrics-server
+      command: kubectl -n kube-system rollout restart deployment metrics-server
+
+    - name: Wait for metrics-server to be ready
+      command: kubectl -n kube-system rollout status deployment metrics-server
+      retries: 10
+      delay: 15
+      register: metrics_status
+      until: metrics_status.rc == 0
+
+    - name: Get current kube-flannel daemonset
+      command: kubectl -n kube-flannel get daemonset kube-flannel-ds -o yaml
+      register: flannel_yaml
+
+    - name: Update kube-flannel iface robustly
+      copy:
+        dest: /tmp/kube-flannel.yaml
+        content: |
+          {{ flannel_yaml.stdout
+            | from_yaml
+            | combine({
+                'spec': {
+                  'template': {
+                    'spec': {
+                      'containers': [
+                        {
+                          'name': 'kube-flannel',
+                          'image': (flannel_yaml.stdout | from_yaml).spec.template.spec.containers[0].image,
+                          'args': [
+                            '--ip-masq',
+                            '--kube-subnet-mgr',
+                            '--iface=enp0s3'
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }, recursive=True)
+            | to_nice_yaml
+          }}
+
+    - name: Apply updated kube-flannel daemonset
+      command: kubectl apply -f /tmp/kube-flannel.yaml
+
+    - name: Restart kube-flannel
+      command: kubectl -n kube-flannel rollout restart daemonset kube-flannel-ds
+
     - name: Create admin service account
       command: >
         kubectl create serviceaccount admin-user -n kubernetes-dashboard
