@@ -10,19 +10,31 @@
   tasks:
     - name: Install Kubernetes Dashboard
       command: >
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
+        kubectl apply --kubeconfig /etc/kubernetes/admin.conf
+        -f https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml
 
     - name: Wait for dashboard deployment to be available
       command: >
         kubectl -n kubernetes-dashboard
         rollout status deployment/kubernetes-dashboard
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       retries: 10
       delay: 15
       register: rollout
       until: rollout.rc == 0
 
+    - name: Install metrics-server
+      command: >
+        kubectl apply --kubeconfig /etc/kubernetes/admin.conf
+        -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
+
     - name: Get current metrics-server deployment
       command: kubectl -n kube-system get deployment metrics-server -o yaml
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       register: metrics_yaml
 
     - name: Update metrics-server args robustly
@@ -58,12 +70,18 @@
 
     - name: Apply updated metrics-server deployment
       command: kubectl apply -f /tmp/metrics-server.yaml
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
 
     - name: Restart metrics-server
       command: kubectl -n kube-system rollout restart deployment metrics-server
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
 
     - name: Wait for metrics-server to be ready
       command: kubectl -n kube-system rollout status deployment metrics-server
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       retries: 10
       delay: 15
       register: metrics_status
@@ -71,6 +89,8 @@
 
     - name: Get current kube-flannel daemonset
       command: kubectl -n kube-flannel get daemonset kube-flannel-ds -o yaml
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       register: flannel_yaml
 
     - name: Update kube-flannel iface robustly
@@ -103,13 +123,19 @@
 
     - name: Apply updated kube-flannel daemonset
       command: kubectl apply -f /tmp/kube-flannel.yaml
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
 
     - name: Restart kube-flannel
       command: kubectl -n kube-flannel rollout restart daemonset kube-flannel-ds
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
 
     - name: Create admin service account
       command: >
         kubectl create serviceaccount admin-user -n kubernetes-dashboard
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       failed_when: false
 
     - name: Create cluster role binding for admin user
@@ -117,11 +143,15 @@
         kubectl create clusterrolebinding admin-user-binding
         --clusterrole=cluster-admin
         --serviceaccount=kubernetes-dashboard:admin-user
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       failed_when: false
 
     - name: Get dashboard login token
       command: >
-        kubectl -n kubernetes-dashboard create token admin-user 
+        kubectl -n kubernetes-dashboard create token admin-user
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/.kube/config
       register: token
 
     - name: Print dashboard token
